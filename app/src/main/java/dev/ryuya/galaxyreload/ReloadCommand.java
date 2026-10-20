@@ -6,7 +6,6 @@ import android.content.pm.PackageManager;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import android.os.*;
-import android.provider.Settings;
 import android.system.Os;
 import java.io.*;
 import java.lang.reflect.*;
@@ -46,9 +45,7 @@ public final class ReloadCommand {
         ReloadCommand tool = new ReloadCommand();
         Object thread = invokeStatic(Class.forName("android.app.ActivityThread"), "systemMain");
         tool.context = (Context) invoke(thread, "getSystemContext");
-        tool.boot =
-            Settings.Global.getInt(
-                tool.context.getContentResolver(), Settings.Global.BOOT_COUNT, -1);
+        tool.boot = readBootCount();
         String command = args.length > 1 ? "invalid" : args.length == 0 ? "help" : args[0];
         status =
             switch (command) {
@@ -204,6 +201,19 @@ public final class ReloadCommand {
     return Integer.toString(ReloadTicket.PROTOCOL).equals(support.getProperty("protocol"))
         && Integer.toString(boot).equals(support.getProperty("boot"))
         && Integer.toString(pid).equals(support.getProperty("pid"));
+  }
+
+  private static int readBootCount() throws Exception {
+    java.lang.Process command =
+        new ProcessBuilder("/system/bin/settings", "get", "global", "boot_count").start();
+    try {
+      if (!command.waitFor(3, TimeUnit.SECONDS) || command.exitValue() != 0) return -1;
+      String text =
+          new String(command.getInputStream().readNBytes(64), StandardCharsets.US_ASCII).trim();
+      return text.matches("[0-9]{1,9}") ? Integer.parseInt(text) : -1;
+    } finally {
+      command.destroyForcibly();
+    }
   }
 
   private static int systemUiPid() throws Exception {
