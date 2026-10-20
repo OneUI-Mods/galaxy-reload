@@ -5,3 +5,5 @@ SDK37 / min36。GUIとCLIはReloadCommandを共用する。root UID以外は拒�
 protocol1の同一ReloadTicketを両リポジトリへ配置し、4件のJVM試験で期限境界・未来時刻・boot/user切替・画面OFF・CE未unlock・不正入力を確認する。配布署名と最低バージョンを照合し、helperは画面ON・device/keyguard unlockedを停止前に2回確認する。native側の詳細はAdaptive Barのdocs/compatibility/reload-session.md。
 
 CLI wrapperは自分の識別コメントがある既存ファイルのみ更新する。別ファイルとsymlinkは上書きしない。相互実行はhost-private FileLockで直列化する。要求はprivate owner1000/mode0600、原子的rename、有効12秒、単回消費。実機確認結果は追記する。
+
+要求ファイルに加えて、生存するroot helperとのLocalSocket handshakeを必須にする。双方のkernel peer UIDを照合し、helperは新SystemUIのPID/cmdlineも確認する。helper停止後のstale markerだけでは引き継げない。

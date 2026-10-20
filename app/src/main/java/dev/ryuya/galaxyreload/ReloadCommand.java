@@ -3,6 +3,8 @@ package dev.ryuya.galaxyreload;
 import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.net.LocalServerSocket;
+import android.net.LocalSocket;
 import android.os.*;
 import android.provider.Settings;
 import android.system.Os;
@@ -14,6 +16,7 @@ import java.nio.file.*;
 import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Root-only command entry. All targets and shell commands are fixed. */
 public final class ReloadCommand {
@@ -97,33 +100,66 @@ public final class ReloadCommand {
       if (!preflight.equals("OK")) return preflight;
       ReloadTicket ticket =
           new ReloadTicket(boot, 0, SystemClock.uptimeMillis(), UUID.randomUUID().toString());
-      Files.deleteIfExists(HOST.resolve(ReloadTicket.CANCEL));
-      Files.deleteIfExists(HOST.resolve(ReloadTicket.RESULT));
-      write(ReloadTicket.REQUEST, ticket.properties());
-      // Verify again immediately before terminating the exact process from this request.
-      if (!unlocked().equals("OK") || !isSystemUi(pid)) {
-        Files.deleteIfExists(HOST.resolve(ReloadTicket.REQUEST));
-        return "STATE_CHANGED";
-      }
-      android.os.Process.sendSignal(pid, 15);
-      long deadline = SystemClock.uptimeMillis() + 10_000;
-      while (SystemClock.uptimeMillis() < deadline) {
-        if (!context.getSystemService(PowerManager.class).isInteractive()) {
+      AtomicBoolean authorized = new AtomicBoolean(true);
+      try (LocalServerSocket broker = new LocalServerSocket("galaxy-reload-" + ticket.nonce())) {
+        Thread receiver =
+            new Thread(() -> authorize(broker, ticket, pid, authorized), "reload-handover");
+        receiver.setDaemon(true);
+        receiver.start();
+        try {
+          Files.deleteIfExists(HOST.resolve(ReloadTicket.CANCEL));
+          Files.deleteIfExists(HOST.resolve(ReloadTicket.RESULT));
+          write(ReloadTicket.REQUEST, ticket.properties());
+          // Verify again immediately before terminating the exact process from this request.
+          if (!unlocked().equals("OK") || !isSystemUi(pid)) {
+            Files.deleteIfExists(HOST.resolve(ReloadTicket.REQUEST));
+            return "STATE_CHANGED";
+          }
+          android.os.Process.sendSignal(pid, 15);
+          long deadline = SystemClock.uptimeMillis() + 10_000;
+          while (SystemClock.uptimeMillis() < deadline) {
+            if (!context.getSystemService(PowerManager.class).isInteractive()) {
+              authorized.set(false);
+              write(ReloadTicket.CANCEL, ticket.properties());
+              Files.deleteIfExists(HOST.resolve(ReloadTicket.REQUEST));
+              return "SCREEN_OFF";
+            }
+            Properties result = read(HOST.resolve(ReloadTicket.RESULT));
+            if (ticket.nonce().equals(result.getProperty("nonce"))
+                && "resumed".equals(result.getProperty("phase"))) {
+              int next = Integer.parseInt(result.getProperty("pid", "0"));
+              if (next != pid && isSystemUi(next) && unlocked().equals("OK")) return "RELOADED";
+            }
+            SystemClock.sleep(50);
+          }
           write(ReloadTicket.CANCEL, ticket.properties());
           Files.deleteIfExists(HOST.resolve(ReloadTicket.REQUEST));
-          return "SCREEN_OFF";
+          return "UNLOCK_NEEDED";
+        } finally {
+          authorized.set(false);
         }
-        Properties result = read(HOST.resolve(ReloadTicket.RESULT));
-        if (ticket.nonce().equals(result.getProperty("nonce"))
-            && "resumed".equals(result.getProperty("phase"))) {
-          int next = Integer.parseInt(result.getProperty("pid", "0"));
-          if (next != pid && isSystemUi(next) && unlocked().equals("OK")) return "RELOADED";
-        }
-        SystemClock.sleep(50);
       }
-      write(ReloadTicket.CANCEL, ticket.properties());
-      Files.deleteIfExists(HOST.resolve(ReloadTicket.REQUEST));
-      return "UNLOCK_NEEDED";
+    }
+  }
+
+  private void authorize(
+      LocalServerSocket server, ReloadTicket ticket, int oldPid, AtomicBoolean authorized) {
+    while (authorized.get()) {
+      try (LocalSocket socket = server.accept()) {
+        socket.setSoTimeout(1000);
+        var peer = socket.getPeerCredentials();
+        if (peer.getUid() != 1000 || peer.getPid() == oldPid || !isSystemUi(peer.getPid()))
+          continue;
+        String request =
+            new String(socket.getInputStream().readNBytes(37), StandardCharsets.US_ASCII);
+        if (!request.equals(ticket.nonce() + "\n")
+            || !authorized.get()
+            || !context.getSystemService(PowerManager.class).isInteractive()) continue;
+        socket.getOutputStream().write("ALLOW\n".getBytes(StandardCharsets.US_ASCII));
+        return;
+      } catch (IOException stopped) {
+        return;
+      }
     }
   }
 
