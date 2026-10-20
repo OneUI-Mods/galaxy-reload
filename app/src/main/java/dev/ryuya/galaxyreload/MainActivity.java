@@ -40,12 +40,16 @@ public final class MainActivity extends AppCompatActivity {
               var outcome = RootShell.execute(command);
               String[] lines = outcome.text().trim().split("\\R");
               result = lines.length == 0 ? "FAILED" : lines[lines.length - 1];
+              if (outcome.code() != 0)
+                android.util.Log.w(
+                    "GalaxyReload", "Helper exit " + outcome.code() + ": " + outcome.text());
             } catch (RootShell.Denied denied) {
               root = false;
               result = "ROOT_REQUIRED";
             } catch (RootShell.TimedOut timeout) {
               result = "TIMEOUT";
             } catch (Exception failure) {
+              android.util.Log.e("GalaxyReload", "Unable to invoke helper", failure);
               result = "FAILED";
             }
             state.postValue(new State(false, root, result));
