@@ -20,7 +20,7 @@ public final class MainActivity extends AppCompatActivity {
   public static final class RootState extends ViewModel {
     final MutableLiveData<Integer> result = new MutableLiveData<>(R.string.reload_root_unknown);
     final ExecutorService worker = Executors.newSingleThreadExecutor();
-    boolean busy;
+    volatile boolean busy;
 
     void check() {
       if (busy) return;
@@ -77,6 +77,10 @@ public final class MainActivity extends AppCompatActivity {
     ImageView icon = new ImageView(this);
     icon.setImageResource(R.drawable.ic_guard);
     icon.setContentDescription(null);
+    icon.setImageTintList(
+        android.content.res.ColorStateList.valueOf(
+            com.google.android.material.color.MaterialColors.getColor(
+                icon, com.google.android.material.R.attr.colorPrimary)));
     body.addView(icon, new LinearLayout.LayoutParams(dp(72), dp(72)));
     text(
         body,
@@ -127,7 +131,7 @@ public final class MainActivity extends AppCompatActivity {
     reload.setEnabled(false);
     body.addView(reload, new LinearLayout.LayoutParams(-1, -2));
     MaterialButton legal =
-        new MaterialButton(this, null, com.google.android.material.R.attr.borderlessButtonStyle);
+        new MaterialButton(this, null, androidx.appcompat.R.attr.borderlessButtonStyle);
     legal.setText(R.string.legal_title);
     legal.setOnClickListener(v -> startActivity(new Intent(this, LicensesActivity.class)));
     body.addView(legal);
