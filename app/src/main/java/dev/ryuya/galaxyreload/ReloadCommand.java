@@ -34,6 +34,7 @@ public final class ReloadCommand {
       """;
   private Context context;
   private int boot;
+  private int hostUid;
 
   public static void main(String[] args) {
     String status;
@@ -45,6 +46,11 @@ public final class ReloadCommand {
         Object thread = invokeStatic(Class.forName("android.app.ActivityThread"), "systemMain");
         tool.context = (Context) invoke(thread, "getSystemContext");
         tool.boot = readBootCount();
+        var host = tool.context.getPackageManager().getApplicationInfo("com.android.systemui", 0);
+        if ((host.flags & android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0
+            || host.uid < 1000
+            || host.uid >= 100000) throw new SecurityException("Unexpected host");
+        tool.hostUid = host.uid;
         String command = args.length > 1 ? "invalid" : args.length == 0 ? "help" : args[0];
         status =
             switch (command) {
@@ -144,7 +150,7 @@ public final class ReloadCommand {
       try (LocalSocket socket = server.accept()) {
         socket.setSoTimeout(1000);
         var peer = socket.getPeerCredentials();
-        if (peer.getUid() != 1000 || peer.getPid() == oldPid || !isSystemUi(peer.getPid()))
+        if (peer.getUid() != hostUid || peer.getPid() == oldPid || !isSystemUi(peer.getPid()))
           continue;
         String request =
             new String(socket.getInputStream().readNBytes(37), StandardCharsets.US_ASCII);
@@ -219,7 +225,7 @@ public final class ReloadCommand {
     }
   }
 
-  private static int systemUiPid() throws Exception {
+  private int systemUiPid() throws Exception {
     java.lang.Process process =
         new ProcessBuilder("/system/bin/pidof", "com.android.systemui").start();
     try {
@@ -234,7 +240,7 @@ public final class ReloadCommand {
     }
   }
 
-  private static boolean isSystemUi(int pid) {
+  private boolean isSystemUi(int pid) {
     if (pid <= 0) return false;
     try (var input = Files.newInputStream(Path.of("/proc", Integer.toString(pid), "cmdline"))) {
       byte[] text = input.readNBytes(128);
@@ -243,7 +249,18 @@ public final class ReloadCommand {
       if (!"com.android.systemui".equals(new String(text, 0, end, StandardCharsets.UTF_8)))
         return false;
       return Files.readAllLines(Path.of("/proc", Integer.toString(pid), "status")).stream()
-          .anyMatch(line -> line.matches("Uid:\\s+1000\\s+1000\\s+1000\\s+1000\\s*"));
+          .anyMatch(
+              line ->
+                  line.matches(
+                      "Uid:\\s+"
+                          + hostUid
+                          + "\\s+"
+                          + hostUid
+                          + "\\s+"
+                          + hostUid
+                          + "\\s+"
+                          + hostUid
+                          + "\\s*"));
     } catch (IOException missing) {
       return false;
     }
@@ -259,12 +276,12 @@ public final class ReloadCommand {
     return result;
   }
 
-  private static void write(String name, Properties properties) throws Exception {
+  private void write(String name, Properties properties) throws Exception {
     Path temporary = HOST.resolve(name + ".root-tmp");
     try (var output = Files.newOutputStream(temporary)) {
       properties.store(output, "Galaxy Reload");
     }
-    Os.chown(temporary.toString(), 1000, 1000);
+    Os.chown(temporary.toString(), hostUid, hostUid);
     Os.chmod(temporary.toString(), 0600);
     Files.move(
         temporary,
