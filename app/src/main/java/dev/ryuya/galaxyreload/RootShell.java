@@ -32,7 +32,9 @@ final class RootShell {
   static Outcome execute(String command) throws Exception {
     Process process;
     try {
-      process = new ProcessBuilder("su", "-c", command).redirectErrorStream(true).start();
+      // App data isolation survives a plain su. Use KernelSU's global mount namespace so the
+      // helper sees the real SystemUI private directory rather than this app's isolated mounts.
+      process = new ProcessBuilder("su", "-M", "-c", command).redirectErrorStream(true).start();
     } catch (IOException missing) {
       throw new Denied();
     }
