@@ -1,6 +1,5 @@
 package dev.ryuya.galaxyreload;
 
-import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.LocalServerSocket;
@@ -167,8 +166,12 @@ public final class ReloadCommand {
     if (user != 0) return "UNSUPPORTED_USER";
     if (boot < 0 || !context.getSystemService(UserManager.class).isUserUnlocked()) return "LOCKED";
     if (!context.getSystemService(PowerManager.class).isInteractive()) return "SCREEN_OFF";
-    KeyguardManager keyguard = context.getSystemService(KeyguardManager.class);
-    return keyguard.isDeviceLocked() || keyguard.isKeyguardLocked() ? "LOCKED" : "OK";
+    Object window = service("window", "android.view.IWindowManager$Stub");
+    Object trust = service("trust", "android.app.trust.ITrustManager$Stub");
+    return Boolean.TRUE.equals(invoke(window, "isKeyguardLocked"))
+            || Boolean.TRUE.equals(invoke(trust, "isDeviceLocked", 0, 0))
+        ? "LOCKED"
+        : "OK";
   }
 
   private boolean trustedCompanion() {
@@ -282,6 +285,12 @@ public final class ReloadCommand {
     Os.chmod(temporary.toString(), 0755);
     Files.move(temporary, CLI, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     return "INSTALLED";
+  }
+
+  private static Object service(String name, String stub) throws Exception {
+    Object binder = invokeStatic(Class.forName("android.os.ServiceManager"), "getService", name);
+    if (binder == null) throw new IOException("Service unavailable");
+    return invokeStatic(Class.forName(stub), "asInterface", binder);
   }
 
   private static Object invokeStatic(Class<?> type, String name, Object... args) throws Exception {
