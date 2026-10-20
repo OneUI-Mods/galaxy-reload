@@ -80,7 +80,7 @@ public final class MainActivity extends AppCompatActivity {
     icon.setImageTintList(
         android.content.res.ColorStateList.valueOf(
             com.google.android.material.color.MaterialColors.getColor(
-                icon, com.google.android.material.R.attr.colorPrimary)));
+                icon, androidx.appcompat.R.attr.colorPrimary)));
     body.addView(icon, new LinearLayout.LayoutParams(dp(72), dp(72)));
     text(
         body,
