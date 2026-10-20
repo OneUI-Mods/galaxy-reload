@@ -21,7 +21,15 @@ final class RootShell {
     }
   }
 
+  record Outcome(int code, String text) {}
+
   static String run(String command) throws Exception {
+    Outcome outcome = execute(command);
+    if (outcome.code() != 0) throw new CommandFailed();
+    return outcome.text();
+  }
+
+  static Outcome execute(String command) throws Exception {
     Process process;
     try {
       process = new ProcessBuilder("su", "-c", command).redirectErrorStream(true).start();
@@ -47,8 +55,7 @@ final class RootShell {
     try {
       if (!process.waitFor(20, TimeUnit.SECONDS)) throw new TimedOut();
       String text = output.get(2, TimeUnit.SECONDS);
-      if (process.exitValue() != 0) throw new CommandFailed();
-      return text;
+      return new Outcome(process.exitValue(), text);
     } finally {
       process.destroyForcibly();
       reader.shutdownNow();

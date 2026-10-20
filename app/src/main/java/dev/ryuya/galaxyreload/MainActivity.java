@@ -1,12 +1,10 @@
 package dev.ryuya.galaxyreload;
 
-import android.content.Intent;
+import android.content.*;
 import android.os.Bundle;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
+import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.*;
-import androidx.core.widget.NestedScrollView;
 import androidx.lifecycle.*;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
@@ -15,31 +13,47 @@ import com.google.android.material.color.DynamicColors;
 import com.google.android.material.textview.MaterialTextView;
 import java.util.concurrent.*;
 
-/** Initial distribution: acquires this application's SU grant without restarting anything. */
 public final class MainActivity extends AppCompatActivity {
-  public static final class RootState extends ViewModel {
-    final MutableLiveData<Integer> result = new MutableLiveData<>(R.string.reload_root_unknown);
-    final ExecutorService worker = Executors.newSingleThreadExecutor();
-    volatile boolean busy;
+  public record State(boolean busy, boolean root, String result) {}
 
-    void check() {
-      if (busy) return;
-      busy = true;
-      result.setValue(R.string.reload_root_waiting);
+  public static final class Operation extends ViewModel {
+    final MutableLiveData<State> state = new MutableLiveData<>(new State(false, false, "UNKNOWN"));
+    private final ExecutorService worker = Executors.newSingleThreadExecutor();
+
+    void run(String apk, String action) {
+      State previous = state.getValue();
+      if (previous != null && previous.busy()) return;
+      boolean allowed = previous != null && previous.root();
+      state.setValue(new State(true, allowed, "WAITING"));
       worker.execute(
           () -> {
-            int message;
+            boolean root = allowed;
+            String result;
             try {
               RootShell.requireRoot();
-              message = R.string.reload_root_allowed;
+              root = true;
+              String command =
+                  "CLASSPATH="
+                      + quote(apk)
+                      + " /system/bin/app_process / dev.ryuya.galaxyreload.ReloadCommand "
+                      + action;
+              var outcome = RootShell.execute(command);
+              String[] lines = outcome.text().trim().split("\\R");
+              result = lines.length == 0 ? "FAILED" : lines[lines.length - 1];
+            } catch (RootShell.Denied denied) {
+              root = false;
+              result = "ROOT_REQUIRED";
             } catch (RootShell.TimedOut timeout) {
-              message = R.string.reload_root_timeout;
-            } catch (Exception denied) {
-              message = R.string.reload_root_denied;
+              result = "TIMEOUT";
+            } catch (Exception failure) {
+              result = "FAILED";
             }
-            busy = false;
-            result.postValue(message);
+            state.postValue(new State(false, root, result));
           });
+    }
+
+    private static String quote(String value) {
+      return "'" + value.replace("'", "'\\''") + "'";
     }
 
     @Override
@@ -47,6 +61,10 @@ public final class MainActivity extends AppCompatActivity {
       worker.shutdownNow();
     }
   }
+
+  private SettingsTabs pages;
+  private static final String CLI_COMMAND =
+      "adb shell su -c '/data/local/tmp/galaxy-reload reload'";
 
   @Override
   public void onCreate(Bundle saved) {
@@ -68,12 +86,10 @@ public final class MainActivity extends AppCompatActivity {
     MaterialToolbar toolbar = new MaterialToolbar(this);
     toolbar.setTitle(R.string.app_name);
     root.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(64)));
-    NestedScrollView scroll = new NestedScrollView(this);
-    root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-    LinearLayout body = new LinearLayout(this);
-    body.setOrientation(LinearLayout.VERTICAL);
-    body.setPadding(dp(20), dp(20), dp(20), dp(24));
-    scroll.addView(body);
+    pages = new SettingsTabs(this, root, saved);
+    LinearLayout reloadPage = pages.page(R.string.reload_tab);
+    LinearLayout commandPage = pages.page(R.string.reload_cli_tab);
+    LinearLayout infoPage = pages.page(R.string.reload_info_tab);
     ImageView icon = new ImageView(this);
     icon.setImageResource(R.drawable.ic_guard);
     icon.setContentDescription(null);
@@ -81,76 +97,160 @@ public final class MainActivity extends AppCompatActivity {
         android.content.res.ColorStateList.valueOf(
             com.google.android.material.color.MaterialColors.getColor(
                 icon, androidx.appcompat.R.attr.colorPrimary)));
-    body.addView(icon, new LinearLayout.LayoutParams(dp(72), dp(72)));
+    reloadPage.addView(icon, new LinearLayout.LayoutParams(dp(72), dp(72)));
     text(
-        body,
+        reloadPage,
         R.string.reload_heading,
         com.google.android.material.R.style.TextAppearance_Material3_HeadlineSmall);
     text(
-        body,
+        reloadPage,
         R.string.reload_intro,
         com.google.android.material.R.style.TextAppearance_Material3_BodyLarge);
-    MaterialCardView card = new MaterialCardView(this);
-    LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(-1, -2);
-    cardParams.setMargins(0, dp(24), 0, dp(20));
-    body.addView(card, cardParams);
-    LinearLayout content = new LinearLayout(this);
-    content.setOrientation(LinearLayout.VERTICAL);
-    content.setPadding(dp(20), dp(20), dp(20), dp(20));
-    card.addView(content);
+    LinearLayout access = card(reloadPage);
     text(
-        content,
+        access,
         R.string.reload_root_title,
         com.google.android.material.R.style.TextAppearance_Material3_TitleMedium);
+    MaterialTextView permission =
+        text(
+            access,
+            R.string.reload_root_unknown,
+            com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
+    MaterialButton check = button(access, R.string.reload_root_check);
+    LinearLayout operation = card(reloadPage);
     MaterialTextView status =
         text(
-            content,
-            R.string.reload_root_unknown,
+            operation,
+            R.string.reload_status_unknown,
             com.google.android.material.R.style.TextAppearance_Material3_BodyLarge);
-    MaterialButton check = new MaterialButton(this);
-    check.setText(R.string.reload_root_check);
-    content.addView(check, new LinearLayout.LayoutParams(-1, -2));
-    RootState model = new ViewModelProvider(this).get(RootState.class);
-    model.result.observe(
-        this,
-        value -> {
-          status.setText(value);
-          check.setEnabled(value != R.string.reload_root_waiting);
-        });
-    check.setOnClickListener(v -> model.check());
+    MaterialButton reload = button(operation, R.string.reload_action);
+    reload.setIconResource(R.drawable.ic_guard);
     text(
-        body,
-        R.string.reload_preparation,
-        com.google.android.material.R.style.TextAppearance_Material3_TitleMedium);
+        operation,
+        R.string.reload_scope,
+        com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
     text(
-        body,
-        R.string.reload_preparation_note,
+        commandPage,
+        R.string.reload_cli_heading,
+        com.google.android.material.R.style.TextAppearance_Material3_HeadlineSmall);
+    text(
+        commandPage,
+        R.string.reload_cli_note,
+        com.google.android.material.R.style.TextAppearance_Material3_BodyLarge);
+    LinearLayout cli = card(commandPage);
+    MaterialButton install = button(cli, R.string.reload_cli_install);
+    MaterialTextView commandStatus =
+        text(
+            cli,
+            R.string.reload_status_unknown,
+            com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
+    MaterialTextView command =
+        text(
+            cli,
+            R.string.reload_cli_command,
+            com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
+    command.setText(CLI_COMMAND);
+    command.setTypeface(android.graphics.Typeface.MONOSPACE);
+    command.setTextIsSelectable(true);
+    button(cli, R.string.reload_cli_copy)
+        .setOnClickListener(
+            v -> {
+              getSystemService(ClipboardManager.class)
+                  .setPrimaryClip(ClipData.newPlainText(getString(R.string.app_name), CLI_COMMAND));
+            });
+    text(
+        cli,
+        R.string.reload_cli_check_note,
         com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
-    MaterialButton reload = new MaterialButton(this);
-    reload.setText(R.string.reload_action);
-    reload.setEnabled(false);
-    body.addView(reload, new LinearLayout.LayoutParams(-1, -2));
-    MaterialButton legal =
-        new MaterialButton(this, null, androidx.appcompat.R.attr.borderlessButtonStyle);
-    legal.setText(R.string.legal_title);
-    legal.setOnClickListener(v -> startActivity(new Intent(this, LicensesActivity.class)));
-    body.addView(legal);
+    text(
+        infoPage,
+        R.string.reload_requirements_title,
+        com.google.android.material.R.style.TextAppearance_Material3_TitleLarge);
+    text(
+        infoPage,
+        R.string.reload_requirements,
+        com.google.android.material.R.style.TextAppearance_Material3_BodyLarge);
+    button(infoPage, R.string.legal_title)
+        .setOnClickListener(v -> startActivity(new Intent(this, LicensesActivity.class)));
     MaterialTextView version =
         text(
-            body,
+            infoPage,
             R.string.reload_version,
             com.google.android.material.R.style.TextAppearance_Material3_LabelMedium);
     version.setText(getString(R.string.reload_version, BuildConfig.VERSION_NAME));
+    Operation model = new ViewModelProvider(this).get(Operation.class);
+    String apk = getApplicationInfo().sourceDir;
+    check.setOnClickListener(v -> model.run(apk, "check"));
+    reload.setOnClickListener(v -> model.run(apk, "reload"));
+    install.setOnClickListener(v -> model.run(apk, "install-cli"));
+    model.state.observe(
+        this,
+        value -> {
+          permission.setText(
+              value.root() ? R.string.reload_root_allowed : R.string.reload_root_unknown);
+          status.setText(message(value.result()));
+          commandStatus.setText(message(value.result()));
+          check.setEnabled(!value.busy());
+          reload.setEnabled(!value.busy());
+          install.setEnabled(!value.busy());
+        });
+    pages.restore();
+  }
+
+  private int message(String code) {
+    return switch (code) {
+      case "READY" -> R.string.reload_status_ready;
+      case "SETUP" -> R.string.reload_status_setup;
+      case "RELOADED" -> R.string.reload_status_done;
+      case "INSTALLED" -> R.string.reload_status_cli;
+      case "WAITING" -> R.string.reload_root_waiting;
+      case "ROOT_REQUIRED" -> R.string.reload_root_denied;
+      case "TIMEOUT" -> R.string.reload_root_timeout;
+      case "LOCKED", "SCREEN_OFF" -> R.string.reload_status_locked;
+      case "MODULE_REQUIRED" -> R.string.reload_status_module;
+      case "UNSUPPORTED", "UNSUPPORTED_USER" -> R.string.reload_status_unsupported;
+      case "UNLOCK_NEEDED" -> R.string.reload_status_unlock;
+      case "CLI_CONFLICT" -> R.string.reload_status_cli_conflict;
+      case "BUSY" -> R.string.reload_status_busy;
+      case "UNKNOWN" -> R.string.reload_status_unknown;
+      default -> R.string.reload_status_failed;
+    };
+  }
+
+  @Override
+  protected void onSaveInstanceState(Bundle out) {
+    pages.save(out);
+    super.onSaveInstanceState(out);
+  }
+
+  private LinearLayout card(LinearLayout parent) {
+    MaterialCardView card = new MaterialCardView(this);
+    card.setRadius(dp(24));
+    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+    lp.setMargins(0, dp(16), 0, dp(8));
+    parent.addView(card, lp);
+    LinearLayout body = new LinearLayout(this);
+    body.setOrientation(LinearLayout.VERTICAL);
+    body.setPadding(dp(20), dp(20), dp(20), dp(20));
+    card.addView(body);
+    return body;
+  }
+
+  private MaterialButton button(LinearLayout parent, int label) {
+    MaterialButton button = new MaterialButton(this);
+    button.setText(label);
+    parent.addView(button, new LinearLayout.LayoutParams(-1, -2));
+    return button;
   }
 
   private MaterialTextView text(LinearLayout parent, int label, int style) {
-    MaterialTextView text = new MaterialTextView(this);
-    text.setText(label);
-    text.setTextAppearance(style);
+    MaterialTextView view = new MaterialTextView(this);
+    view.setText(label);
+    view.setTextAppearance(style);
     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
     lp.setMargins(0, dp(8), 0, dp(8));
-    parent.addView(text, lp);
-    return text;
+    parent.addView(view, lp);
+    return view;
   }
 
   private int dp(int value) {
