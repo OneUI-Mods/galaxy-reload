@@ -47,6 +47,71 @@ class ReloadCommand {
         return if (matchesSupport(support, pid)) "READY" else "SETUP"
     }
 
+    /** Reload while retaining the native lock screen; never creates an unlock handover. */
+    @Throws(Exception::class)
+    private fun reloadLocked(): String? {
+        if (!firmwareSupported()) return "UNSUPPORTED"
+        if (!trustedCompanion()) return "MODULE_REQUIRED"
+        lockedReloadRejection()?.let {
+            return it
+        }
+        FileChannel.open(
+                HOST.resolve("galaxy-reload-operation.lock"),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.WRITE,
+            )
+            .use { channel ->
+                channel.tryLock().use { lock ->
+                    if (lock == null) return "BUSY"
+                    val pid = systemUiPid()
+                    if (pid <= 0 || !isSystemUi(pid)) return "NO_SYSTEMUI"
+                    lockedReloadRejection()?.let {
+                        return it
+                    }
+                    // An interrupted normal reload must not supply a stale unlock request.
+                    for (name in
+                        arrayOf(
+                            ReloadTicket.REQUEST,
+                            ReloadTicket.RESULT,
+                            ReloadTicket.CANCEL,
+                        )) Files.deleteIfExists(HOST.resolve(name))
+                    if (!isSystemUi(pid)) return "STATE_CHANGED"
+                    Process.sendSignal(pid, 15)
+                    val deadline = SystemClock.elapsedRealtime() + 20000
+                    var candidate = 0
+                    var stableSince = 0L
+                    while (SystemClock.elapsedRealtime() < deadline) {
+                        val current = systemUiPid()
+                        val now = SystemClock.elapsedRealtime()
+                        if (current > 0 && current != pid && current == candidate) {
+                            if (now - stableSince >= 3000 && lockedReloadRejection() == null)
+                                return "RELOADED_LOCKED"
+                        } else {
+                            candidate = if (current != pid) current else 0
+                            stableSince = now
+                        }
+                        SystemClock.sleep(100)
+                    }
+                    return "LOCKED_RELOAD_TIMEOUT"
+                }
+            }
+    }
+
+    private fun lockedReloadRejection(): String? {
+        val user =
+            (invokeStatic(Class.forName("android.app.ActivityManager"), "getCurrentUser") as Number)
+                .toInt()
+        val credentialReady =
+            boot >= 0 && context.getSystemService(UserManager::class.java).isUserUnlocked()
+        val interactive = context.getSystemService(PowerManager::class.java).isInteractive()
+        val window = service("window", "android.view.IWindowManager\$Stub")
+        val trust = service("trust", "android.app.trust.ITrustManager\$Stub")
+        val locked =
+            java.lang.Boolean.TRUE == invoke(window, "isKeyguardLocked") &&
+                java.lang.Boolean.TRUE == invoke(trust, "isDeviceLocked", 0, 0)
+        return LockedReloadPolicy.rejection(user, credentialReady, interactive, locked)
+    }
+
     @Throws(Exception::class)
     private fun reload(): String? {
         val readiness = check()
@@ -343,8 +408,10 @@ class ReloadCommand {
                         when (command) {
                             "check" -> tool.check()
                             "reload" -> tool.reload()
+                            "reload-locked" -> tool.reloadLocked()
                             "install-cli" -> ReloadCommand.installCli()
-                            "help" -> "USAGE: galaxy-reload check | reload | install-cli"
+                            "help" ->
+                                "USAGE: galaxy-reload check | reload | reload-locked | install-cli"
                             else -> "UNKNOWN_COMMAND"
                         }
                 }
@@ -356,7 +423,13 @@ class ReloadCommand {
             System.out.flush()
             System.exit(
                 if (
-                    java.util.Set.of<String?>("READY", "SETUP", "RELOADED", "INSTALLED")
+                    java.util.Set.of<String?>(
+                            "READY",
+                            "SETUP",
+                            "RELOADED",
+                            "RELOADED_LOCKED",
+                            "INSTALLED",
+                        )
                         .contains(status) || status!!.startsWith("USAGE:")
                 )
                     0

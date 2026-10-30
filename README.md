@@ -23,6 +23,14 @@ adb shell su -c '/data/local/tmp/galaxy-reload check'
 adb shell su -c '/data/local/tmp/galaxy-reload reload'
 ```
 
+ロック画面を保持してSystemUIだけ読み込み直す場合は、rootから明示的に次を実行します。
+
+```sh
+adb shell su -c '/data/local/tmp/galaxy-reload reload-locked'
+```
+
+`reload-locked`は解除要求を作らず、ロック画面を維持します。画面ON・Android所有者ユーザー・再起動後の初回認証済みの場合だけ使えます。通常の`reload`の解除状態引き継ぎとは別の操作です。
+
 `check`は状態確認、`reload`は再読み込みです。コマンドはインストール済みAPKを参照するため、同じ署名のアプリ更新後も利用できます。画面に拒否理由が表示された場合は、その状態を解消してから再実行してください。
 
 ## 開発者向け・ライセンス

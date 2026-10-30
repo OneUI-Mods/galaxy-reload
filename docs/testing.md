@@ -25,3 +25,9 @@ GUIのplain suはアプリのデータ隔離mountを引き継ぎ、他アプリ�
 旧SystemUIの停止を検出して消灯すると、実行中のreloadは終了コード2 / SCREEN_OFFで中断した。新SystemUIは純正ロックを表示し、当該プロセスで引き継ぎのresume経路は実行されなかった。消灯中のcheck/reloadもSCREEN_OFFで拒否された。最初の点灯後は純正顔認証が成功していたため、その後のREADY/RELOADEDはロック試験に数えずログを分離した。
 
 利用者が前面カメラを覆い、指紋センサーに触れない状態で正常な引き継ぎ後のロックを再確認した。消灯でshowing/inputRestrictedはtrue、enabledはtrueのまま。点灯後のcheck/reloadはどちらも終了コード2 / LOCKED。拒否前後でSystemUI PIDは変化せず、system_server・ホーム・kernel boot IDも不変だった。13秒後もロック状態を維持し、未消費requestは存在しない。crash guardは未発動。認証設定・資格情報の変更とコード修正は不要で、配布APKと既存タグは変更しない。
+
+## ロック維持のCLI再読み込み
+
+`reload-locked`はroot UID、対応ファームウェア、信頼済みAdaptive Bar、所有者ユーザー、CE解放済み、画面ON、WindowManagerとTrustManager両方のロック状態を確認する独立した明示コマンドです。共有FileLockと厳密なSystemUI PID/UID照合を使い、停止直前に条件を再確認します。旧handover要求を削除し、新しい解除要求やソケットを作りません。停止対象はSystemUIのみで、3秒間同じ新PIDが維持され、ロック状態も維持された場合だけ成功を返します。
+
+通常reload、GUI、認証設定・資格情報、ホーム、system_server、OSには変更を加えません。拒否条件の5件をJVMで確認しています。実機結果は確認後に追記します。
