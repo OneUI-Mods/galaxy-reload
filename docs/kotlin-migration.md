@@ -16,7 +16,7 @@ C++・Goのソースは変更していません。JNIを持つアプリは、移
 ./gradlew :app:compileReleaseKotlin :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
 ```
 
-既存・回帰JVMテスト6件とrelease lintを確認しています。実機用コードはコンパイルの確認と、端末上での実行を区別します。この移行版に対する実機の画面操作・音声経路の確認は未実施です。端末・SystemUI・ホーム・音声サービスの再起動は実施していません。
+既存・回帰JVMテスト11件とrelease lintを確認しています。実機用コードはコンパイルの確認と、端末上での実行を区別します。この移行版に対する実機の画面操作・音声経路の確認は未実施です。端末・SystemUI・ホーム・音声サービスの再起動は実施していません。
 
 Kotlinの整形は`ktfmt --kotlinlang-style`を使用します。生成コードを更新した場合も整形とビルドを確認してください。配布時は既存のリリース手順を使い、同じ鍵で署名したrelease variantを検証します。移行ブランチのビルド成果物を、そのまま公開リリースとして扱わないでください。
 
@@ -32,3 +32,9 @@ Google APIsのarm64エミュレータ、Android 16（API 36）とAndroid 17（AP
 - Javaから使う静的な補助メソッドと、要求有効期間のlong型を維持。コマンドを実行しないJVM契約テストを2件追加しました。
 
 この結果は、rootなしでアプリ側の画面と設定が動くことを確認したものです。Samsung SystemUI／One UIホーム／Home Up／Camera／Camera Assistant、Vectorのフック実行、root権限、実際の録画・通話音声・物理デバイスの経路は検証していません。Kotlin化前と全機能が同一と断定するものではありません。
+
+## ロックを保持するCLI（2026-10-30）
+
+明示的なrootコマンドreload-lockedを追加しました。通常の解除状態引き継ぎとは別に、画面ON・所有者ユーザー・CE解放済み・ロック中の場合だけSystemUIを読み込み直します。認証要求を作らず、ロック設定と認証情報を変更しません。拒否条件5件を追加し、JVMテスト計11件が成功しています。
+
+Android 17実機でロックを維持した再読み込みに成功。UID 2000の拒否と、通常reloadのロック中拒否をPID不変まで確認しました。OS・system_server・ホームは再起動していません。詳しい条件と未確認範囲はdocs/testing.mdを参照してください。

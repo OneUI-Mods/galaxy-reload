@@ -30,4 +30,4 @@ GUIのplain suはアプリのデータ隔離mountを引き継ぎ、他アプリ�
 
 `reload-locked`はroot UID、対応ファームウェア、信頼済みAdaptive Bar、所有者ユーザー、CE解放済み、画面ON、WindowManagerとTrustManager両方のロック状態を確認する独立した明示コマンドです。共有FileLockと厳密なSystemUI PID/UID照合を使い、停止直前に条件を再確認します。旧handover要求を削除し、新しい解除要求やソケットを作りません。停止対象はSystemUIのみで、3秒間同じ新PIDが維持され、ロック状態も維持された場合だけ成功を返します。
 
-通常reload、GUI、認証設定・資格情報、ホーム、system_server、OSには変更を加えません。拒否条件の5件をJVMで確認しています。実機結果は確認後に追記します。
+通常reload、GUI、認証設定・資格情報、ホーム、system_server、OSには変更を加えません。拒否条件の5件をJVMで確認しています。Android 17の実機で署名済みreleaseを上書きし、reload-lockedがRELOADED_LOCKEDを返すことと、WindowManager/TrustManagerがロック状態を維持することを確認しました。kernel boot ID・system_server・ホームPIDは不変、SystemUIのみ新PIDになり、その後のクイックパネル開閉でも安定しました。UID 2000へ明示的に落とした実行はROOT_REQUIRED、従来の通常reloadはLOCKEDで拒否され、両拒否操作ではSystemUI PIDが変わりませんでした。Android 16のlocked-only経路の物理端末試験は未実施です。
