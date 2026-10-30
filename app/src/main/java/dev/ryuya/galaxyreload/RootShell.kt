@@ -23,6 +23,7 @@ class RootShell {
 
     companion object {
         @Throws(Exception::class)
+        @JvmStatic
         fun requireRoot() {
             try {
                 if (RootShell.run("exec /system/bin/id -u").trim { it <= ' ' } != "0")
@@ -33,6 +34,7 @@ class RootShell {
         }
 
         @Throws(Exception::class)
+        @JvmStatic
         fun run(command: String?): String {
             val outcome = RootShell.execute(command)
             if (outcome.code !== 0) throw RootShell.CommandFailed()
@@ -40,6 +42,7 @@ class RootShell {
         }
 
         @Throws(Exception::class)
+        @JvmStatic
         fun execute(command: String?): RootShell.Outcome {
             val process: Process?
             try {

@@ -41,12 +41,13 @@ data class ReloadTicket(
 
     companion object {
         const val PROTOCOL = 1
-        const val REQUEST_LIFETIME_MS = 12000
+        const val REQUEST_LIFETIME_MS = 12000L
         const val REQUEST = "galaxy-reload-request.properties"
         const val SUPPORT = "galaxy-reload-support.properties"
         const val RESULT = "galaxy-reload-result.properties"
         const val CANCEL = "galaxy-reload-cancel.properties"
 
+        @JvmStatic
         fun parse(properties: Properties): ReloadTicket? {
             try {
                 if (ReloadTicket.PROTOCOL.toString() != properties.getProperty("protocol"))
