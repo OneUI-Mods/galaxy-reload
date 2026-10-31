@@ -40,3 +40,7 @@ adb shell su -c '/data/local/tmp/galaxy-reload reload-locked'
 本体のライセンスは[LICENSE](LICENSE)、依存ライブラリの表記はアプリ内または同梱の第三者ライセンスを参照してください。Samsungの公式アプリではありません。
 
 [OneUI Modsのアプリ一覧](https://github.com/OneUI-Mods)
+
+## 文字列の互換性
+
+ライセンス一覧の検索・バージョン表示で、一部の空白文字の扱いを従来どおりに戻しました。
