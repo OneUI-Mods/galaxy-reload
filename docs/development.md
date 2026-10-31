@@ -20,3 +20,5 @@ Android SDKのコンパイル対象は37です。JDK・Gradle・依存関係の�
 
 - [署名・配布手順](releasing.md)
 - [試験記録](testing.md)
+
+- [Kotlin移行の設計と検証範囲](kotlin-migration.md)
