@@ -28,7 +28,6 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.DynamicColors
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.textview.MaterialTextView
-import java.util.concurrent.Executors
 import java.util.regex.Pattern
 import kotlin.jvm.JvmRecord
 
@@ -44,7 +43,7 @@ class MainActivity : AppCompatActivity() {
 
     class Operation : ViewModel() {
         val state = MutableLiveData<MainActivity.State>(MainActivity.State(false, false, "UNKNOWN"))
-        private val worker = Executors.newSingleThreadExecutor()
+        private val worker = BackgroundExecutors.serial("GalaxyReloadCommands")
 
         fun run(apk: String, action: String?) {
             val previous = state.getValue()
@@ -81,7 +80,7 @@ class MainActivity : AppCompatActivity() {
                         result = "FAILED"
                     }
                     state.postValue(MainActivity.State(false, root, result))
-                }
+                },
             )
         }
 
@@ -128,8 +127,8 @@ class MainActivity : AppCompatActivity() {
                 MaterialColors.getColor(
                     icon,
                     androidx.appcompat.R.attr.colorPrimary,
-                )
-            )
+                ),
+            ),
         )
         reloadPage.addView(icon, LayoutParams(dp(72), dp(72)))
         text(
@@ -204,9 +203,9 @@ class MainActivity : AppCompatActivity() {
                             ClipData.newPlainText(
                                 getString(R.string.app_name),
                                 MainActivity.CLI_COMMAND,
-                            )
+                            ),
                         )
-                }
+                },
             )
         text(
             cli,
@@ -227,7 +226,7 @@ class MainActivity : AppCompatActivity() {
             .setOnClickListener(
                 OnClickListener { v: View? ->
                     startActivity(Intent(this, LicensesActivity::class.java))
-                }
+                },
             )
         val version =
             text(
@@ -244,13 +243,13 @@ class MainActivity : AppCompatActivity() {
         install.setOnClickListener(
             OnClickListener { v: View? ->
                 model.run(apk, "install-cli")
-            }
+            },
         )
         model.state.observe(
             this,
             Observer { value: MainActivity.State ->
                 permission.setText(
-                    if (value.root) R.string.reload_root_allowed else R.string.reload_root_unknown
+                    if (value.root) R.string.reload_root_allowed else R.string.reload_root_unknown,
                 )
                 status.setText(message(value.result))
                 commandStatus.setText(message(value.result))

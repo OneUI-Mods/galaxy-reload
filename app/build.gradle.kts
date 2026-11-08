@@ -7,8 +7,8 @@ android {
         applicationId = "dev.ryuya.galaxyreload"
         minSdk = 36
         targetSdk = 37
-        versionCode = 3
-        versionName = "0.2.1-experimental"
+        versionCode = 4
+        versionName = "0.2.2"
     }
     buildFeatures { buildConfig = true }
     buildTypes { release { isDebuggable = false; isMinifyEnabled = false } }
