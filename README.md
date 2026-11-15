@@ -1,5 +1,7 @@
 # Galaxy Reload
 
+[日本語](README.md) · [English](README.en.md)
+
 画面ON・解除済みの状態から、SystemUIを再読み込みするroot向けアプリです。Galaxy Adaptive Barと連携して解除状態を引き継ぎ、認証情報やロック設定を変更せずに再読み込みします。
 
 ## 対応環境
