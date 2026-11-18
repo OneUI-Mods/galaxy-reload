@@ -10,8 +10,8 @@ android {
         applicationId = "dev.ryuya.galaxyreload"
         minSdk = 36
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.2.2"
+        versionCode = 5
+        versionName = "0.2.3"
     }
     buildFeatures { buildConfig = true }
     buildTypes {
