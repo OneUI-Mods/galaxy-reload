@@ -152,7 +152,7 @@ class ReloadCommand {
                             // this request.
                             if (unlocked() != "OK" || !isSystemUi(pid)) {
                                 Files.deleteIfExists(
-                                    ReloadCommand.HOST.resolve(ReloadTicket.REQUEST)
+                                    ReloadCommand.HOST.resolve(ReloadTicket.REQUEST),
                                 )
                                 return "STATE_CHANGED"
                             }
@@ -160,20 +160,20 @@ class ReloadCommand {
                             val deadline = SystemClock.uptimeMillis() + 10000
                             while (SystemClock.uptimeMillis() < deadline) {
                                 if (
-                                    !context
+                                    (context
                                         .getSystemService<PowerManager?>(PowerManager::class.java)
-                                        .isInteractive()
+                                        ?.isInteractive() != true)
                                 ) {
                                     authorized.set(false)
                                     write(ReloadTicket.CANCEL, ticket.properties())
                                     Files.deleteIfExists(
-                                        ReloadCommand.HOST.resolve(ReloadTicket.REQUEST)
+                                        ReloadCommand.HOST.resolve(ReloadTicket.REQUEST),
                                     )
                                     return "SCREEN_OFF"
                                 }
                                 val result =
                                     ReloadCommand.read(
-                                        ReloadCommand.HOST.resolve(ReloadTicket.RESULT)
+                                        ReloadCommand.HOST.resolve(ReloadTicket.RESULT),
                                     )
                                 if (
                                     ticket.nonce.equals(result.getProperty("nonce")) &&
@@ -221,9 +221,9 @@ class ReloadCommand {
                     if (
                         (request != ticket.nonce + "\n") ||
                             !authorized.get() ||
-                            !context
+                            (context
                                 .getSystemService<PowerManager?>(PowerManager::class.java)
-                                .isInteractive()
+                                ?.isInteractive() != true)
                     )
                         continue
                     socket.getOutputStream().write("ALLOW\n".toByteArray(StandardCharsets.US_ASCII))
@@ -246,10 +246,15 @@ class ReloadCommand {
         if (user != 0) return "UNSUPPORTED_USER"
         if (
             boot < 0 ||
-                !context.getSystemService<UserManager?>(UserManager::class.java).isUserUnlocked()
+                (context
+                    .getSystemService<UserManager?>(UserManager::class.java)
+                    ?.isUserUnlocked() != true)
         )
             return "LOCKED"
-        if (!context.getSystemService<PowerManager?>(PowerManager::class.java).isInteractive())
+        if (
+            (context.getSystemService<PowerManager?>(PowerManager::class.java)?.isInteractive() !=
+                true)
+        )
             return "SCREEN_OFF"
         val window = ReloadCommand.service("window", "android.view.IWindowManager\$Stub")
         val trust = ReloadCommand.service("trust", "android.app.trust.ITrustManager\$Stub")
@@ -275,7 +280,7 @@ class ReloadCommand {
                 val digest = MessageDigest.getInstance("SHA-256").digest(certificate.toByteArray())
                 val hex = StringBuilder()
                 for (part in digest) hex.append(
-                    String.format(Locale.ROOT, "%02x", part.toInt() and 255)
+                    String.format(Locale.ROOT, "%02x", part.toInt() and 255),
                 )
                 if (ReloadCommand.BAR_SIGNER.contentEquals(hex)) return true
             }
@@ -332,7 +337,7 @@ class ReloadCommand {
                                     "\\s+" +
                                     hostUid +
                                     "\\s*")
-                                .toRegex()
+                                .toRegex(),
                         )
                     }
             }
@@ -433,7 +438,7 @@ class ReloadCommand {
                         .contains(status) || status!!.startsWith("USAGE:")
                 )
                     0
-                else 2
+                else 2,
             )
         }
 
@@ -524,7 +529,7 @@ class ReloadCommand {
                     Class.forName(stub),
                     "asInterface",
                     binder,
-                )
+                ),
             )
         }
 

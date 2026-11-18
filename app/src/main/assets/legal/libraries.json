@@ -409,10 +409,10 @@
   {
     "id": "org.jetbrains.kotlin:kotlin-stdlib",
     "title": "kotlin-stdlib",
-    "version": "2.2.10",
+    "version": "2.4.21",
     "license": "Apache 2.0, BSD 3-Clause, Boost 1.0",
-    "asset": "legal/KOTLIN-2.2.10.txt",
-    "notice": "org.jetbrains.kotlin:kotlin-stdlib:2.2.10\nhttps://kotlinlang.org/\nCopyright belongs to the respective authors and contributors."
+    "asset": "legal/KOTLIN-2.4.21.txt",
+    "notice": "org.jetbrains.kotlin:kotlin-stdlib:2.4.21\nhttps://kotlinlang.org/\nCopyright belongs to the respective authors and contributors."
   },
   {
     "id": "org.jetbrains.kotlinx:kotlinx-coroutines-android",

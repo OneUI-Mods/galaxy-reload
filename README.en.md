@@ -46,3 +46,5 @@ See [LICENSE](LICENSE) for the app's license and the in-app or bundled third-par
 ## String compatibility
 
 The previous handling of certain whitespace in license search and version display has been restored.
+
+[Build environment / ビルド環境](docs/build-environment.md)

@@ -199,7 +199,7 @@ class MainActivity : AppCompatActivity() {
             .setOnClickListener(
                 OnClickListener { v: View? ->
                     getSystemService<ClipboardManager?>(ClipboardManager::class.java)
-                        .setPrimaryClip(
+                        ?.setPrimaryClip(
                             ClipData.newPlainText(
                                 getString(R.string.app_name),
                                 MainActivity.CLI_COMMAND,
