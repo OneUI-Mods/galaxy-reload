@@ -1,12 +1,14 @@
 # Galaxy Reload
 
+Installation requires Android 17 (API 37) or later.
+
 [日本語](README.md) · English
 
 A root companion for reloading SystemUI while the screen is on and the phone is already unlocked. It works with Galaxy Adaptive Bar to carry the unlocked state across the reload without changing credentials or lock settings.
 
 ## Requirements
 
-Targets Galaxy S26 Ultra (SM-S948Q), Android 16 / AZHL and Android 17 / BZI9. Requires root, Vector with API 102 support, and Galaxy Adaptive Bar 0.6.18+ enabled in SystemUI. Initial loading or a failed handoff may still require manual unlocking.
+Targets Galaxy S26 Ultra (SM-S948Q), Android 17 / BZI9. Requires root, Vector with API 102 support, and Galaxy Adaptive Bar 0.6.18+ enabled in SystemUI. Initial loading or a failed handoff may still require manual unlocking.
 
 ## Usage
 

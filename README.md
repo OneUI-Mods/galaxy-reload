@@ -1,12 +1,14 @@
 # Galaxy Reload
 
+インストールにはAndroid 17（API 37）以降が必要です。
+
 [日本語](README.md) · [English](README.en.md)
 
 画面ON・解除済みの状態から、SystemUIを再読み込みするroot向けアプリです。Galaxy Adaptive Barと連携して解除状態を引き継ぎ、認証情報やロック設定を変更せずに再読み込みします。
 
 ## 対応環境
 
-Galaxy S26 Ultra（SM-S948Q）のAndroid 16 / AZHLとAndroid 17 / BZI9向けです。root、API 102対応Vector、SystemUIで有効なGalaxy Adaptive Bar 0.6.18以降が必要です。初回読み込みや引き継ぎに失敗した場合は、手動のロック解除が必要なことがあります。
+Galaxy S26 Ultra（SM-S948Q）のAndroid 17 / BZI9向けです。root、API 102対応Vector、SystemUIで有効なGalaxy Adaptive Bar 0.6.18以降が必要です。初回読み込みや引き継ぎに失敗した場合は、手動のロック解除が必要なことがあります。
 
 ## 使い方
 
